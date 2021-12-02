@@ -116,11 +116,18 @@ std::string ftostr(std::string& file_name) {
 
 VOID log_debug(const wchar_t* format, ...)
 {
-    wchar_t message[512];
+    const size_t length = 1024;
+    wchar_t message[length];
     va_list arg_ptr;
     va_start(arg_ptr, format);
-    _vsnwprintf_s(message, 512, 512, format, arg_ptr);
+    _vsnwprintf_s(message, length, length, format, arg_ptr);
     va_end(arg_ptr);
     OutputDebugString(message);
     wprintf(message);
+
+    char ascii_message[length];
+    char def_char = ' ';
+    WideCharToMultiByte(CP_ACP, 0, message, -1, ascii_message, length, &def_char, NULL);
+    std::string message_string(ascii_message);
+    agent_message(message_string);
 }

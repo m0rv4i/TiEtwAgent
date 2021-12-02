@@ -22,12 +22,15 @@ void report_detection(int detId, GenericEvent evt) {
     string allocType =        itohs(evt.fields[L"AllocationType"]);
     string size =             to_string(evt.fields[L"RegionSize"]);
     string baseAddr =         itohs(evt.fields[L"BaseAddress"]);
+    string bytesCopied =      to_string(evt.fields[L"BytesCopied"]);
+    string lastProtMask =     itohs(evt.fields[L"LastProtectionMask"]);
+
 
     switch (detId) {
         case ALLOCVM_REMOTE_META_GENERIC:
             sDump = dump_memory_ascii(evt.fields[L"TargetProcessId"], evt.fields[L"BaseAddress"], MEM_STR_SIZE);
 
-            sOutBody = "\n\n\n\n[7;31mANOMALOUS MEMORY ALLOCATION DETECTED[0m \n\n";
+            sOutBody = "\n\n[7;31mANOMALOUS REMOTE MEMORY ALLOCATION DETECTED[0m \n\n";
             sOutBody += "[+] Source:       " + procImage + " (PID: " + procId + ")\n";
             sOutBody += "[+] Target:       " + targetProcImage + " (PID: " + targetProcId + ")\n";
             sOutBody += "[+] Protection:   " + protMask + "\n";
@@ -45,11 +48,55 @@ void report_detection(int detId, GenericEvent evt) {
 
             sOutBody += "[+] Memory at location: \n\n";
             sOutBody += sDump;
+            sOutBody += "\n\n";
+            break;
+        case ALLOCVM_LOCAL_META_GENERIC:
+            sDump = dump_memory_ascii(evt.fields[L"CallingProcessId"], evt.fields[L"BaseAddress"], MEM_STR_SIZE);
+
+            sOutBody = "\n\n[7;31mANOMALOUS LOCAL MEMORY ALLOCATION DETECTED[0m \n\n";
+            sOutBody += "[+] Source:       " + procImage + " (PID: " + procId + ")\n";
+            sOutBody += "[+] Protection:   " + protMask + "\n";
+            sOutBody += "[+] Allocation:   " + allocType + "\n";
+            sOutBody += "[+] Region size:  " + size + "\n";
+            sOutBody += "[+] Base address: " + baseAddr + "\n";
+            sOutBody += "[+] MZ-header:    ";
+
+            if (sDump.rfind("MZ", 0) == 0) {
+                sOutBody += "[31mYES[0m\n\n";
+            }
+            else {
+                sOutBody += "[33mNO[0m\n\n";
+            }
+
+            sOutBody += "[+] Memory at location: \n\n";
+            sOutBody += sDump;
+            sOutBody += "\n\n";
             break;
         case ALLOCVM_REMOTE_SIGNATURES:
+            break;
+        case WRITEVM_REMOTE:
+            sDump = dump_memory_ascii(evt.fields[L"TargetProcessId"], evt.fields[L"BaseAddress"], MEM_STR_SIZE);
+            sOutBody = "\n\n\n\n[7;31mREMOTE WRITE DETECTED[0m \n\n";
+            sOutBody += "[+] Source:       " + procImage + " (PID: " + procId + ")\n";
+            sOutBody += "[+] Target:       " + targetProcImage + " (PID: " + targetProcId + ")\n";
+            sOutBody += "[+] Base address: " + baseAddr + "\n"; 
+            sOutBody += "[+] BytesCopied address: " + bytesCopied + "\n";
+            sOutBody += "[+] Memory at location: \n\n";
+            sOutBody += sDump;
+            sOutBody += "\n\n";
+            break;
+        case PROTECTVM_REMOTE:
+            sOutBody = "\n\n\n\n[7;31mREMOTE MEMORY PROTECTION CHANGE DETECTED[0m \n\n";
+            sOutBody += "[+] Source:       " + procImage + " (PID: " + procId + ")\n";
+            sOutBody += "[+] Target:       " + targetProcImage + " (PID: " + targetProcId + ")\n";
+            sOutBody += "[+] Base address: " + baseAddr + "\n";
+            sOutBody += "[+] Size: " + size + "\n";
+            sOutBody += "[+] Protection:   " + protMask + "\n";
+            sOutBody += "[+] LastProtection:   " + lastProtMask + "\n";
+            break;
         default:
             sOutBody = "\n\n\n\n[7;31mDETECTION: " + to_string((DETECTIONS)detId) + "[0m \n\n";
-            sOutBody += "[+] Source:       " + procImage + " (PID: " + procId + ")\n";
+            sOutBody += "[+] Source:       " + procImage + " (PID: " + procId + ")\n\n";
     }
 
     if (sOutBody.empty()) {
@@ -108,7 +155,7 @@ DWORD agent_worker()
 
     user_trace trace(ETS_NAME);
     provider<> provider(L"Microsoft-Windows-Threat-Intelligence");
-    event_filter filter(predicates::id_is((int)KERNEL_THREATINT_TASK_ALLOCVM_REMOTE));
+    //event_filter filter(predicates::id_is((int)KERNEL_THREATINT_TASK_ALLOCVM_REMOTE));
 
     if (YARA_ENABLED) {
         log_debug(L"TiEtwAgent: Setting up Yara\n");
@@ -121,7 +168,7 @@ DWORD agent_worker()
     try {
         log_debug(L"TiEtwAgent: Setting up the trace session\n");
         provider.add_on_event_callback(parse_generic_event);
-        provider.add_filter(filter);
+        //provider.add_filter(filter);
         trace.enable(provider);
 
         trace.start();

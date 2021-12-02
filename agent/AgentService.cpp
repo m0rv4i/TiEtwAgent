@@ -29,7 +29,7 @@ VOID WINAPI ServiceMain(DWORD argc, LPTSTR* argv)
     if (SetServiceStatus(g_StatusHandle, &g_ServiceStatus) == FALSE)
     {
         ret = GetLastError();
-        log_debug(L"TiEtwSensor: Unable to set service status\n", ret);
+        log_debug(L"TiEtwSensor: Unable to set service status: %d\n", ret);
         return;
     }
 
